@@ -53,6 +53,27 @@ python run.py
 - 로컬: http://localhost:8000
 - 안드로이드 에뮬레이터: http://10.0.2.2:8000
 
+## Vercel 배포 방법
+
+1. Vercel CLI 설치 (선택사항)
+
+```bash
+npm i -g vercel
+```
+
+2. Vercel에 배포
+
+```bash
+vercel
+```
+
+또는 Vercel 대시보드에서:
+
+1. 새 프로젝트 생성
+2. GitHub 저장소 연결
+3. 환경 변수 설정 (OPENAI_API_KEY 등)
+4. 배포
+
 ## API 문서
 
 API 문서는 서버 실행 후 다음 주소에서 확인할 수 있습니다:

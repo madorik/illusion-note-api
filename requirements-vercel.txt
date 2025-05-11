@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+transformers
+datasets
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+accelerate
+peft
+python-dotenv
+openai 
