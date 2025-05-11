@@ -1,9 +1,4 @@
 fastapi
 uvicorn[standard]
-transformers
-datasets
-torch
-accelerate
-peft
 python-dotenv
 openai 

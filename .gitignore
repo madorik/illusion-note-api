@@ -5,3 +5,10 @@ __pycache__/
 venv/
 .vercel
 *.log
+*.pt
+*.bin
+*.model
+*.ckpt
+*.h5
+node_modules/
+app/models/__pycache__/
