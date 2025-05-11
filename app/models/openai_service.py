@@ -13,14 +13,21 @@ class OpenAIService:
     """OpenAI API 연동을 위한 서비스 클래스"""
     
     def __init__(self):
-        # OpenAI API 키 설정
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            print("경고: OPENAI_API_KEY가 환경 변수에 설정되지 않았습니다.")
+        # 환경 변수에서 직접 OpenAI API 키 가져오기 (시스템 환경 변수 우선)
+        api_key = os.environ.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+        
+        if not api_key or api_key == "your-api-key-here":
+            print("경고: 유효한 OPENAI_API_KEY가 환경 변수에 설정되지 않았습니다.")
+            api_key = None  # OpenAI 클라이언트가 기본값을 사용하도록
             
         self.client = OpenAI(api_key=api_key)
-        self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # GPT-4.1 nano 모델 (gpt-4o-mini가 nano에 해당)
-        print(f"OpenAI 설정: 모델={self.model}, API 키={api_key[:5]}...{'*' * 10}")
+        self.model = os.environ.get("OPENAI_MODEL") or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        
+        # API 키 마스킹하여 로그 출력
+        masked_key = "없음"
+        if api_key:
+            masked_key = api_key[:5] + "..." + "*" * 10
+        print(f"OpenAI 설정: 모델={self.model}, API 키={masked_key}")
         
         # 모드별 프롬프트 템플릿
         self.prompt_templates = {
