@@ -57,7 +57,7 @@ async def health_check():
 async def openai_completion(request: PromptRequest):
     try:
         if not openai.api_key:
-            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+            return {"error": "OpenAI API key not configured in environment variables"}
         
         response = openai.Completion.create(
             engine=OPENAI_MODEL,
@@ -68,7 +68,7 @@ async def openai_completion(request: PromptRequest):
         
         return {"result": response.choices[0].text.strip()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"error": str(e)}
 
 # A simple emotion analyzer endpoint
 @app.post("/api/emotion")
