@@ -1,4 +1,4 @@
-from app.main import app
+from api.minimal import app
 
 # This is necessary for Vercel serverless function deployment
 # It exposes the FastAPI app as a handler

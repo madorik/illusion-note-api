@@ -1,10 +1,5 @@
 fastapi
 uvicorn[standard]
-transformers
-datasets
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
-accelerate
-peft
+openai
 python-dotenv
-openai 
+pydantic 

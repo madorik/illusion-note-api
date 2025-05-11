@@ -6,7 +6,8 @@
       "use": "@vercel/python",
       "config": {
         "runtime": "python3.9",
-        "requirementsPath": "requirements-vercel.txt"
+        "requirementsPath": "requirements-vercel.txt",
+        "maxLambdaSize": "15mb"
       }
     }
   ],
