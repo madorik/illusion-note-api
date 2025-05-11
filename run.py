@@ -7,7 +7,7 @@ if __name__ == "__main__":
     os.environ["PORT"] = "8000"
     os.environ["HOST"] = "0.0.0.0"
     os.environ["MODEL_NAME"] = "facebook/bart-large-cnn"
-    os.environ["OPENAI_API_KEY"] = "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"
+    os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your actual API key
     os.environ["OPENAI_MODEL"] = "gpt-4o-mini"
     
     # dotenv도 로드 (존재하는 경우에만 작동)
