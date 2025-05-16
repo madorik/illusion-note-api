@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenAI 감정 분석 테스트</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+            margin-top: 15px;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .loading {
+            text-align: center;
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #fff;
+        }
+        .card-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .card-body {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>OpenAI 감정 분석 테스트</h1>
+    
+    <div class="container">
+        <h2>OpenAI 고급 감정 분석</h2>
+        
+        <div class="form-group">
+            <label for="openai-text">텍스트 입력:</label>
+            <textarea id="openai-text" placeholder="분석할 텍스트를 입력하세요..."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="openai-mood">감정 선택:</label>
+            <select id="openai-mood">
+                <option value="happy">좋음 (Happy)</option>
+                <option value="neutral" selected>보통 (Neutral)</option>
+                <option value="sad">슬픔 (Sad)</option>
+                <option value="tired">지침 (Tired)</option>
+                <option value="angry">불안 (Angry)</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="openai-response-type">응답 유형:</label>
+            <select id="openai-response-type">
+                <option value="comfort" selected>위로 (Comfort)</option>
+                <option value="fact">분석 (Fact)</option>
+                <option value="advice">조언 (Advice)</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="openai-context">추가 컨텍스트 (선택사항):</label>
+            <textarea id="openai-context" placeholder="추가적인 컨텍스트를 입력하세요..." style="height: 80px;"></textarea>
+        </div>
+        
+        <button id="analyze-button">OpenAI로 분석하기</button>
+        
+        <div class="loading" id="loading-indicator">분석 중...</div>
+        
+        <div class="result" id="result-container"></div>
+    </div>
+
+    <script>
+        // 결과 테이블 생성 함수
+        function createResultTable(data) {
+            return `
+            <div class="card">
+                <div class="card-header">분석 결과</div>
+                <div class="card-body">
+                    <table>
+                        <tr>
+                            <th>항목</th>
+                            <th>내용</th>
+                        </tr>
+                        <tr>
+                            <td>감정</td>
+                            <td>${data.emotion || '없음'}</td>
+                        </tr>
+                        <tr>
+                            <td>분석 텍스트</td>
+                            <td>${data.analyze_text || '없음'}</td>
+                        </tr>
+                        <tr>
+                            <td>요약</td>
+                            <td>${data.summary || '없음'}</td>
+                        </tr>
+                        <tr>
+                            <td>응답</td>
+                            <td>${data.response || '없음'}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">원본 응답 데이터</div>
+                <div class="card-body">
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            </div>
+            `;
+        }
+
+        // OpenAI 분석
+        document.getElementById('analyze-button').addEventListener('click', async () => {
+            const text = document.getElementById('openai-text').value;
+            const mood_id = document.getElementById('openai-mood').value;
+            const mode = "chat"; // Default to chat mode since analysis mode was removed
+            const response_type = document.getElementById('openai-response-type').value;
+            const context = document.getElementById('openai-context').value;
+            const resultDiv = document.getElementById('result-container');
+            const loading = document.getElementById('loading-indicator');
+            
+            if (!text) {
+                resultDiv.textContent = '텍스트를 입력해주세요.';
+                return;
+            }
+            
+            // 로딩 표시
+            resultDiv.textContent = '';
+            loading.style.display = 'block';
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/emotion/openai', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text, mood_id, mode, response_type, context })
+                });
+                
+                const data = await response.json();
+                
+                // 결과 테이블 표시
+                resultDiv.innerHTML = createResultTable(data);
+            } catch (error) {
+                resultDiv.textContent = `오류 발생: ${error.message}`;
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html> 
