@@ -2,23 +2,20 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "runtime": "python3.9",
-        "requirementsPath": "requirements.txt",
-        "maxLambdaSize": "15mb"
-      }
+      "src": "api/index.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "api/index.py"
+      "dest": "api/index.js"
     }
   ],
   "env": {
-    "MODEL_NAME": "facebook/bart-large-cnn",
-    "OPENAI_MODEL": "gpt-4o-mini"
+    "OPENAI_MODEL": "gpt-4o-mini",
+    "SERVER_DOMAIN": "https://illusion-note-api.vercel.app",
+    "SUPABASE_URL": "https://ppfigvlzfrdezvijtiwn.supabase.co",
+    "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZmlndmx6ZnJkZXp2aWp0aXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc0NDc3MjIsImV4cCI6MjA2MzAyMzcyMn0.1JD3sRKYSZn8SCJ4PJu2_6u58Oo0VodLuL5dfO_bDE4"
   }
 } 

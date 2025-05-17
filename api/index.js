@@ -1,0 +1,298 @@
+// Express 기반 Vercel Serverless API
+const express = require('express');
+const cors = require('cors');
+const OpenAI = require('openai');
+const OpenAIService = require('./openai-service');
+const emotionStorageService = require('./emotion-storage-service');
+const supabase = require('./supabase-client');
+const path = require('path');
+
+// Initialize Express
+const app = express();
+// Initialize OpenAIService
+const openaiService = new OpenAIService();
+
+// 서버 도메인 설정
+const SERVER_DOMAIN = process.env.SERVER_DOMAIN || `http://localhost:${process.env.PORT || 3001}`;
+
+// CORS 설정
+app.use(cors());
+app.use(express.json());
+
+// 정적 파일 제공 설정
+app.use(express.static(path.join(__dirname, '../public')));
+
+// 기본 루트 엔드포인트
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Illusion Note API - Welcome!',
+    domain: SERVER_DOMAIN,
+    endpoints: {
+      '/': 'API 정보 (GET)',
+      '/health': '상태 확인 (GET)',
+      '/api/emotion/openai': '감정 분석 API - 자동 감정 분석 지원 (POST)',
+      '/api/emotion/by-date': '날짜별 감정 분석 기록 조회 (GET)',
+      '/api/emotion/monthly-stats': '월별 감정 통계 조회 (GET)',
+      '/api/emotion/recent': '사용자 최근 작성글 조회 (GET)'
+    },
+    docs: {
+      '/emotion-analyzer-test.html': '감정 분석 테스트 페이지'
+    }
+  });
+});
+
+// 상태 체크 엔드포인트
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy', domain: SERVER_DOMAIN });
+});
+
+// OpenAI 감정 분석 엔드포인트 - OpenAIService 사용
+app.post('/api/emotion/openai', async (req, res) => {
+  try {
+    const { text, mood_id = '', mode = 'chat', response_type = 'comfort', context = '', userId = 'anonymous' } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    console.log(`감정 분석 요청: mood_id=${mood_id || '자동 감정 분석'}, response_type=${response_type}`);
+
+    // OpenAIService를 사용한 응답 생성
+    const result = await openaiService.generateResponse(
+      text,
+      response_type
+    );
+    
+    // 만약 title이 없는 경우 OpenAI API를 사용하여 생성
+    if (!result.title) {
+      try {
+        const titlePrompt = `사용자가 입력한 다음 텍스트를 바탕으로 15자 이내의 간결하고 의미있는 제목을 생성해주세요. 제목만 응답해주세요:\n\n${text}`;
+        
+        const titleResponse = await openaiService.client.chat.completions.create({
+          model: openaiService.model,
+          messages: [
+            { 
+              role: "system", 
+              content: "당신은 텍스트를 읽고 15자 이내의 간결한 제목을 생성하는 전문가입니다. 제목만 응답해주세요." 
+            },
+            { role: "user", content: titlePrompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 50
+        });
+        
+        result.title = titleResponse.choices[0].message.content.trim();
+      } catch (titleError) {
+        console.error('제목 생성 중 오류:', titleError);
+        result.title = '제목 없음';
+      }
+    }
+    
+    // 결과를 Supabase에 저장
+    try {
+      // 데이터 유효성 검사 - 모든 필수 필드가 있는지 확인
+      if (!result.emotion) result.emotion = '알 수 없음';
+      if (!result.response) result.response = '응답 없음';
+      
+      const storageData = {
+        userId,
+        text,
+        emotion: result.emotion,
+        response: result.response,
+        analyze_text: result.analyze_text || null,
+        summary: result.summary || null,
+        title: result.title || null,
+        responseType: response_type,
+        metadata: {
+          mode,
+          context: context || undefined
+        }
+      };
+      
+      console.log('감정 분석 결과 저장 시작:', JSON.stringify({
+        userId,
+        textLength: text.length,
+        emotion: result.emotion,
+        title: result.title
+      }));
+      
+      // 비동기적으로 저장 (응답을 기다리지 않음)
+      emotionStorageService.saveEmotionAnalysis(storageData)
+        .then(savedData => {
+          if (savedData) {
+            console.log(`감정 분석 결과 저장 완료: ID=${savedData.id}, 제목=${result.title}`);
+          } else {
+            console.log('감정 분석 결과 저장 실패: 저장된 데이터가 없음');
+          }
+        })
+        .catch(err => {
+          console.error('결과 저장 중 오류 발생:', err);
+        });
+    } catch (storageError) {
+      // 저장 실패해도 API 응답은 정상적으로 반환
+      console.error('Supabase 저장 오류:', storageError);
+    }
+    
+    // 응답 반환
+    return res.json(result);
+  } catch (error) {
+    console.error('OpenAI 감정 분석 오류:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 날짜별 감정 분석 기록 조회 엔드포인트
+app.get('/api/emotion/by-date', async (req, res) => {
+  try {
+    const { userId = 'anonymous', startDate, endDate, limit = 100 } = req.query;
+    
+    // 날짜 파라미터 검증
+    if (!startDate && !endDate) {
+      console.log('날짜 파라미터 누락');
+      return res.status(400).json({ 
+        error: 'At least one date parameter (startDate or endDate) is required' 
+      });
+    }
+    
+    console.log(`날짜별 감정 분석 기록 조회 요청: 사용자=${userId}, 시작일=${startDate}, 종료일=${endDate}, 제한=${limit}`);
+    
+    // 감정 분석 기록 조회
+    const data = await emotionStorageService.getEmotionAnalysisByDate(
+      userId,
+      startDate,
+      endDate,
+      { limit: parseInt(limit, 10) }
+    );
+    
+    // 통계 데이터 계산
+    const emotionCounts = {};
+    data.forEach(item => {
+      const emotion = item.emotion || '알 수 없음';
+      emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1;
+    });
+    
+    // 응답 구성
+    return res.json({
+      total: data.length,
+      statistics: {
+        emotionCounts
+      },
+      data
+    });
+  } catch (error) {
+    console.error('날짜별 감정 분석 기록 조회 오류:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 월별 감정 통계 조회 엔드포인트
+app.get('/api/emotion/monthly-stats', async (req, res) => {
+  try {
+    const { userId = 'anonymous', year, yearMonth } = req.query;
+    
+    // yearMonth와 year 파라미터 검증
+    if (yearMonth && year) {
+      return res.status(400).json({ 
+        error: 'Cannot use both yearMonth and year parameters together. Please use only one.' 
+      });
+    }
+    
+    // yearMonth 파라미터 검증 (YYYY-MM 형식)
+    if (yearMonth) {
+      const yearMonthRegex = /^\d{4}-(?:0[1-9]|1[0-2])$/;
+      if (!yearMonthRegex.test(yearMonth)) {
+        return res.status(400).json({ 
+          error: 'Invalid yearMonth parameter. Format must be YYYY-MM (e.g. 2023-12)' 
+        });
+      }
+      
+      console.log(`특정 년월 감정 통계 요청: 사용자=${userId}, 년월=${yearMonth}`);
+      
+      // 특정 년월에 대한 감정 통계 조회
+      const monthlyStats = await emotionStorageService.getMonthlyEmotionStats(userId, yearMonth);
+      
+      // 응답 구성
+      return res.json({
+        userId,
+        yearMonth,
+        stats: monthlyStats
+      });
+    }
+    // 연도 파라미터 처리 (있으면 숫자로 변환)
+    else if (year) {
+      const yearParam = parseInt(year, 10);
+      
+      // 유효한 연도인지 확인
+      if (isNaN(yearParam) || yearParam < 2000 || yearParam > 2100) {
+        return res.status(400).json({ 
+          error: 'Invalid year parameter (must be between 2000-2100)' 
+        });
+      }
+      
+      console.log(`연도별 월간 감정 통계 요청: 사용자=${userId}, 연도=${yearParam}`);
+      
+      // 특정 연도의 월별 감정 통계 조회
+      const monthlyStats = await emotionStorageService.getMonthlyEmotionStats(userId, null, yearParam);
+      
+      // 응답 구성
+      return res.json({
+        userId,
+        year: yearParam,
+        totalMonths: monthlyStats.length,
+        stats: monthlyStats
+      });
+    }
+    // 아무 파라미터도 없는 경우 전체 기간 조회
+    else {
+      console.log(`전체 기간 월별 감정 통계 요청: 사용자=${userId}`);
+      
+      // 전체 기간 월별 감정 통계 조회
+      const monthlyStats = await emotionStorageService.getMonthlyEmotionStats(userId);
+      
+      // 응답 구성
+      return res.json({
+        userId,
+        totalMonths: monthlyStats.length,
+        stats: monthlyStats
+      });
+    }
+  } catch (error) {
+    console.error('월별 감정 통계 조회 오류:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 사용자 최근 작성글 조회 엔드포인트
+app.get('/api/emotion/recent', async (req, res) => {
+  try {
+    const { userId = 'anonymous', count = 5 } = req.query;
+    
+    // count 파라미터 유효성 검사
+    const countNum = parseInt(count, 10);
+    if (isNaN(countNum) || countNum < 1) {
+      return res.status(400).json({ 
+        error: 'Invalid count parameter. Must be a positive number.' 
+      });
+    }
+    
+    console.log(`사용자 최근 작성글 요청: 사용자=${userId}, 개수=${countNum}`);
+    
+    // 최근 작성글 조회
+    const recentPosts = await emotionStorageService.getRecentEmotionAnalysis(
+      userId,
+      countNum
+    );
+    
+    // 응답 구성
+    return res.json({
+      userId,
+      count: recentPosts.length,
+      posts: recentPosts
+    });
+  } catch (error) {
+    console.error('최근 작성글 조회 오류:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = app; 

@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c48c1523-f259-4c32-9924-b9a7bd8956fe" name="Changes" comment="" />
+    <list default="true" id="c48c1523-f259-4c32-9924-b9a7bd8956fe" name="Changes" comment="서버 도메인 환경변수 적용 버그 수정">
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -12,6 +14,9 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 5
@@ -51,7 +56,26 @@
       <updated>1746963451598</updated>
       <workItem from="1746963452830" duration="517000" />
       <workItem from="1746963981443" duration="138000" />
+      <workItem from="1747009730070" duration="604000" />
+      <workItem from="1747438014002" duration="777000" />
     </task>
+    <task id="LOCAL-00001" summary="add server domain env">
+      <option name="closed" value="true" />
+      <created>1747438120089</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1747438120089</updated>
+    </task>
+    <task id="LOCAL-00002" summary="서버 도메인 환경변수 적용 버그 수정">
+      <option name="closed" value="true" />
+      <created>1747438832156</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1747438832156</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -67,5 +91,10 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="add server domain env" />
+    <MESSAGE value="서버 도메인 환경변수 적용 버그 수정" />
+    <option name="LAST_COMMIT_MESSAGE" value="서버 도메인 환경변수 적용 버그 수정" />
   </component>
 </project>
