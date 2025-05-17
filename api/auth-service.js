@@ -3,10 +3,16 @@
  */
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const jwt = require('jsonwebtoken');
 const supabase = require('./supabase-client');
 
 // Anonymous 사용자 ID
 const ANONYMOUS_USER_ID = '00000000-0000-0000-0000-000000000000';
+
+// JWT Secret 키
+const JWT_SECRET = process.env.JWT_SECRET || 'illusion-note-jwt-secret-key';
+// 토큰 만료 시간 (24시간)
+const JWT_EXPIRES_IN = '24h';
 
 class AuthService {
   constructor() {
@@ -29,13 +35,13 @@ class AuthService {
       - 콜백 URL: ${process.env.SERVER_DOMAIN}/api/auth/google/callback
     `);
     
-    // 사용자 정보를 세션에 저장
+    // 사용자 정보를 세션에 저장 (JWT 사용으로 단순화됨)
     passport.serializeUser((user, done) => {
       console.log(`사용자 세션 직렬화: ID=${user.id}, 이름=${user.name}`);
       done(null, user.id);
     });
 
-    // 세션에서 사용자 정보 조회
+    // 세션에서 사용자 정보 조회 (JWT 사용으로 단순화됨)
     passport.deserializeUser(async (id, done) => {
       console.log(`사용자 세션 역직렬화 요청: ID=${id}`);
       try {
@@ -155,14 +161,52 @@ class AuthService {
   }
 
   /**
-   * 사용자 인증 상태 확인용 미들웨어
+   * JWT 토큰 생성
+   * @param {Object} user 사용자 객체
+   * @returns {string} JWT 토큰
+   */
+  generateToken(user) {
+    const payload = {
+      id: user.id,
+      email: user.email,
+      name: user.name
+    };
+
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  }
+
+  /**
+   * JWT 토큰 검증 미들웨어
+   */
+  verifyToken(req, res, next) {
+    // Authorization 헤더 또는 쿠키에서 토큰 가져오기
+    const authHeader = req.headers.authorization;
+    const token = req.cookies?.auth_token || (authHeader && authHeader.split(' ')[1]);
+
+    if (!token) {
+      return res.status(401).json({ error: 'No authentication token provided' });
+    }
+
+    try {
+      // 토큰 검증
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      // 검증된 사용자 정보를 요청 객체에 추가
+      req.user = decoded;
+      
+      next();
+    } catch (error) {
+      console.error('JWT 검증 실패:', error.message);
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+  }
+
+  /**
+   * 사용자 인증 상태 확인용 미들웨어 (JWT 기반)
    */
   ensureAuthenticated(req, res, next) {
-    console.log(`인증 확인: ${req.isAuthenticated() ? '인증됨' : '인증되지 않음'}, 사용자=${req.user?.name || 'None'}`);
-    if (req.isAuthenticated()) {
-      return next();
-    }
-    res.status(401).json({ error: 'Unauthorized' });
+    // verifyToken과 동일한 기능이지만, 이름을 유지하기 위해 별도 함수로 둠
+    this.verifyToken(req, res, next);
   }
   
   /**
@@ -170,6 +214,36 @@ class AuthService {
    */
   getAnonymousUserId() {
     return ANONYMOUS_USER_ID;
+  }
+
+  /**
+   * JWT Secret 반환
+   */
+  getJwtSecret() {
+    return JWT_SECRET;
+  }
+
+  /**
+   * 사용자 정보 조회 (ID 기반)
+   */
+  async getUserById(userId) {
+    try {
+      const { data, error } = await supabase
+        .from(this.tableName)
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error(`사용자 조회 오류: ${error.message}`);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('사용자 조회 실패:', error);
+      return null;
+    }
   }
 }
 

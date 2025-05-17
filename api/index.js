@@ -11,6 +11,7 @@ const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./auth-routes');
 const authService = require('./auth-service');
+const jwt = require('jsonwebtoken');
 
 // Initialize Express
 const app = express();
@@ -69,6 +70,7 @@ app.get('/', (req, res) => {
       '/api/auth/google': 'Google 로그인 (GET)',
       '/api/auth/status': '로그인 상태 확인 (GET)',
       '/api/auth/logout': '로그아웃 (GET)',
+      '/api/profile': '사용자 프로필 정보 (GET)',
       '/api/emotion/openai': '감정 분석 API - 자동 감정 분석 지원 (POST)',
       '/api/emotion/by-date': '날짜별 감정 분석 기록 조회 (GET)',
       '/api/emotion/monthly-stats': '월별 감정 통계 조회 (GET)',
@@ -85,13 +87,65 @@ app.get('/health', (req, res) => {
   res.json({ status: 'healthy', domain: SERVER_DOMAIN });
 });
 
+// 프로필 정보 조회 엔드포인트 
+app.get('/api/profile', authService.verifyToken, async (req, res) => {
+  try {
+    console.log(`프로필 정보 요청: 사용자ID=${req.user.id}`);
+    
+    // Supabase에서 최신 사용자 정보 조회
+    const userData = await authService.getUserById(req.user.id);
+    
+    if (!userData) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // 민감한 정보 제외하고 반환
+    const profile = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      picture: userData.picture,
+      provider: userData.provider,
+      created_at: userData.created_at,
+      last_login: userData.last_login
+    };
+    
+    res.json({
+      success: true,
+      profile
+    });
+  } catch (error) {
+    console.error('프로필 정보 조회 오류:', error);
+    res.status(500).json({ error: '프로필 정보를 가져오는 중 오류가 발생했습니다.' });
+  }
+});
+
 // OpenAI 감정 분석 엔드포인트 - OpenAIService 사용
 app.post('/api/emotion/openai', async (req, res) => {
   try {
-    const { text, mood_id = '', mode = 'chat', response_type = 'comfort', context = '', userId = 'anonymous' } = req.body;
+    const { text, mood_id = '', mode = 'chat', response_type = 'comfort', context = '' } = req.body;
     
     if (!text) {
       return res.status(400).json({ error: 'Text is required' });
+    }
+
+    // 인증 토큰에서 사용자 ID 가져오기
+    let userId = authService.getAnonymousUserId();
+    
+    // 토큰 확인 시도
+    const authHeader = req.headers.authorization;
+    const token = req.cookies?.auth_token || (authHeader && authHeader.split(' ')[1]);
+    
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, authService.getJwtSecret());
+        userId = decoded.id;
+        console.log(`인증된 사용자의 감정 분석 요청: ${decoded.name} (ID: ${userId})`);
+      } catch (tokenError) {
+        console.log('유효하지 않은 토큰, 익명 사용자로 처리합니다.');
+      }
+    } else {
+      console.log('토큰 없음, 익명 사용자로 처리합니다.');
     }
 
     console.log(`감정 분석 요청: mood_id=${mood_id || '자동 감정 분석'}, response_type=${response_type}`);
@@ -183,7 +237,7 @@ app.post('/api/emotion/openai', async (req, res) => {
 // 날짜별 감정 분석 기록 조회 엔드포인트
 app.get('/api/emotion/by-date', async (req, res) => {
   try {
-    const { userId = 'anonymous', startDate, endDate, limit = 100 } = req.query;
+    const { startDate, endDate, limit = 100 } = req.query;
     
     // 날짜 파라미터 검증
     if (!startDate && !endDate) {
@@ -191,6 +245,25 @@ app.get('/api/emotion/by-date', async (req, res) => {
       return res.status(400).json({ 
         error: 'At least one date parameter (startDate or endDate) is required' 
       });
+    }
+    
+    // 인증 토큰에서 사용자 ID 가져오기
+    let userId = authService.getAnonymousUserId();
+    
+    // 토큰 확인 시도
+    const authHeader = req.headers.authorization;
+    const token = req.cookies?.auth_token || (authHeader && authHeader.split(' ')[1]);
+    
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, authService.getJwtSecret());
+        userId = decoded.id;
+        console.log(`인증된 사용자의 날짜별 조회 요청: ${decoded.name} (ID: ${userId})`);
+      } catch (tokenError) {
+        console.log('유효하지 않은 토큰, 익명 사용자로 처리합니다.');
+      }
+    } else {
+      console.log('토큰 없음, 익명 사용자로 처리합니다.');
     }
     
     console.log(`날짜별 감정 분석 기록 조회 요청: 사용자=${userId}, 시작일=${startDate}, 종료일=${endDate}, 제한=${limit}`);
@@ -227,13 +300,32 @@ app.get('/api/emotion/by-date', async (req, res) => {
 // 월별 감정 통계 조회 엔드포인트
 app.get('/api/emotion/monthly-stats', async (req, res) => {
   try {
-    const { userId = 'anonymous', year, yearMonth } = req.query;
+    const { year, yearMonth } = req.query;
     
     // yearMonth와 year 파라미터 검증
     if (yearMonth && year) {
       return res.status(400).json({ 
         error: 'Cannot use both yearMonth and year parameters together. Please use only one.' 
       });
+    }
+    
+    // 인증 토큰에서 사용자 ID 가져오기
+    let userId = authService.getAnonymousUserId();
+    
+    // 토큰 확인 시도
+    const authHeader = req.headers.authorization;
+    const token = req.cookies?.auth_token || (authHeader && authHeader.split(' ')[1]);
+    
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, authService.getJwtSecret());
+        userId = decoded.id;
+        console.log(`인증된 사용자의 월별 통계 요청: ${decoded.name} (ID: ${userId})`);
+      } catch (tokenError) {
+        console.log('유효하지 않은 토큰, 익명 사용자로 처리합니다.');
+      }
+    } else {
+      console.log('토큰 없음, 익명 사용자로 처리합니다.');
     }
     
     // yearMonth 파라미터 검증 (YYYY-MM 형식)
@@ -304,7 +396,7 @@ app.get('/api/emotion/monthly-stats', async (req, res) => {
 // 사용자 최근 작성글 조회 엔드포인트
 app.get('/api/emotion/recent', async (req, res) => {
   try {
-    const { userId = 'anonymous', count = 5 } = req.query;
+    const { count = 5 } = req.query;
     
     // count 파라미터 유효성 검사
     const countNum = parseInt(count, 10);
@@ -312,6 +404,25 @@ app.get('/api/emotion/recent', async (req, res) => {
       return res.status(400).json({ 
         error: 'Invalid count parameter. Must be a positive number.' 
       });
+    }
+    
+    // 인증 토큰에서 사용자 ID 가져오기
+    let userId = authService.getAnonymousUserId();
+    
+    // 토큰 확인 시도
+    const authHeader = req.headers.authorization;
+    const token = req.cookies?.auth_token || (authHeader && authHeader.split(' ')[1]);
+    
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, authService.getJwtSecret());
+        userId = decoded.id;
+        console.log(`인증된 사용자의 최근 작성글 요청: ${decoded.name} (ID: ${userId})`);
+      } catch (tokenError) {
+        console.log('유효하지 않은 토큰, 익명 사용자로 처리합니다.');
+      }
+    } else {
+      console.log('토큰 없음, 익명 사용자로 처리합니다.');
     }
     
     console.log(`사용자 최근 작성글 요청: 사용자=${userId}, 개수=${countNum}`);

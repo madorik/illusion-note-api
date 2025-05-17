@@ -3,109 +3,119 @@
  */
 const express = require('express');
 const passport = require('passport');
+const jwt = require('jsonwebtoken');
+const router = express.Router();
 const authService = require('./auth-service');
 const { logOAuthDebug, analyzeOAuthError } = require('./oauth-debug');
 
-const router = express.Router();
-
 // 로그인 상태 확인 엔드포인트
 router.get('/status', (req, res) => {
-  console.log(`로그인 상태 확인: ${req.isAuthenticated() ? '인증됨' : '인증되지 않음'}`);
-  console.log(`세션 ID: ${req.session?.id || 'None'}`);
-  console.log(`세션 데이터:`, req.session);
-  
-  if (req.isAuthenticated()) {
-    console.log(`인증된 사용자: ${req.user.name} (ID: ${req.user.id})`);
-    res.json({
-      isAuthenticated: true,
-      user: req.user
-    });
-  } else {
-    res.json({
-      isAuthenticated: false
+  try {
+    // 쿠키 또는 Authorization 헤더에서 토큰 확인
+    const authHeader = req.headers.authorization;
+    const token = req.cookies?.auth_token || (authHeader && authHeader.split(' ')[1]);
+    
+    if (!token) {
+      return res.json({
+        authenticated: false,
+        message: "Not authenticated"
+      });
+    }
+    
+    // 토큰 검증 시도
+    try {
+      const decoded = jwt.verify(token, authService.getJwtSecret());
+      
+      // 응답
+      return res.json({
+        authenticated: true,
+        user: {
+          id: decoded.id,
+          name: decoded.name,
+          email: decoded.email
+        }
+      });
+    } catch (tokenError) {
+      // 토큰 검증 실패
+      console.error('토큰 검증 실패:', tokenError.message);
+      
+      // 쿠키 삭제
+      res.clearCookie('auth_token');
+      
+      return res.json({
+        authenticated: false,
+        message: "Invalid token"
+      });
+    }
+  } catch (error) {
+    console.error('인증 상태 확인 오류:', error);
+    return res.status(500).json({ 
+      authenticated: false,
+      error: "Server error"
     });
   }
 });
 
 // Google 로그인 시작
-router.get('/google', (req, res, next) => {
-  console.log('\n----- Google 로그인 시작 -----');
-  console.log(`세션 ID: ${req.session?.id || 'None'}`);
-  console.log(`세션 데이터:`, req.session);
-  
-  passport.authenticate('google', {
+router.get('/google', 
+  passport.authenticate('google', { 
     scope: ['profile', 'email'],
     prompt: 'select_account'
-  })(req, res, next);
-});
+  })
+);
 
 // Google 로그인 콜백
-router.get('/google/callback', (req, res, next) => {
-  console.log('\n----- Google 콜백 수신 -----');
-  console.log(`요청 URL: ${req.originalUrl}`);
-  console.log(`쿼리 파라미터:`, req.query);
-  console.log(`세션 ID: ${req.session?.id || 'None'}`);
-  
-  // OAuth 디버깅 정보 로깅
-  logOAuthDebug(req);
-  
-  // 모든 헤더 로깅
-  console.log('요청 헤더:');
-  Object.keys(req.headers).forEach(key => {
-    console.log(`  ${key}: ${req.headers[key]}`);
-  });
-  
-  passport.authenticate('google', {
-    failureRedirect: '/login-failed',
-    failureMessage: true,
-    successReturnToOrRedirect: '/'
-  }, (err, user, info) => {
-    // OAuth 인증 콜백 결과 처리
-    if (err) {
-      console.error('Google 인증 오류:', err);
-      analyzeOAuthError(err);
-      return res.redirect('/login.html?error=' + encodeURIComponent(err.message || 'authentication_error'));
-    }
-    
-    if (!user) {
-      console.error('인증은 성공했지만 사용자 정보 없음:', info);
-      return res.redirect('/login.html?error=no_user_info');
-    }
-    
-    // 로그인 처리
-    req.login(user, (loginErr) => {
-      if (loginErr) {
-        console.error('로그인 세션 생성 오류:', loginErr);
-        return res.redirect('/login.html?error=session_error');
-      }
+router.get('/google/callback', 
+  passport.authenticate('google', { 
+    failureRedirect: '/login.html?error=auth_failed',
+    session: false // 세션 사용 대신 JWT 사용
+  }),
+  (req, res) => {
+    try {
+      console.log('Google 로그인 성공:', req.user.name);
       
-      console.log(`----- Google 로그인 성공 -----\n`);
-      console.log(`인증된 사용자: ${user.name} (ID: ${user.id})`);
-      return res.redirect('/');
-    });
-  })(req, res, next);
-});
+      // JWT 토큰 생성
+      const token = authService.generateToken(req.user);
+      
+      // 디버깅용: 토큰 로그 출력
+      console.log('===== 발급된 JWT 토큰 =====');
+      console.log(token);
+      console.log('==========================');
+      
+      // 쿠키에 토큰 저장
+      res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000 // 24시간
+      });
+      
+      // 성공 페이지로 리디렉션
+      const redirectURL = req.query.redirect || '/';
+      res.redirect(redirectURL);
+    } catch (error) {
+      console.error('로그인 처리 중 오류:', error);
+      res.redirect('/login.html?error=server_error');
+    }
+  }
+);
 
 // 로그인 실패 엔드포인트
 router.get('/login-failed', (req, res) => {
-  console.error('로그인 실패:');
-  console.error('세션 메시지:', req.session?.messages);
-  console.error('세션 데이터:', req.session);
-  
-  res.redirect('/login.html?error=authentication_failed');
+  console.log('로그인 실패 페이지 접근');
+  res.status(401).json({ 
+    success: false, 
+    message: '로그인에 실패했습니다.' 
+  });
 });
 
 // 로그아웃
 router.get('/logout', (req, res) => {
-  console.log(`로그아웃 요청: 사용자=${req.user?.name || 'None'}`);
-  req.logout((err) => {
-    if (err) {
-      console.error('로그아웃 중 오류:', err);
-      return res.status(500).json({ error: '로그아웃 중 오류가 발생했습니다.' });
-    }
-    console.log('로그아웃 성공');
-    res.redirect('/');
-  });
+  // 쿠키 삭제
+  res.clearCookie('auth_token');
+  
+  // 로그아웃 후 리디렉션
+  const redirectURL = req.query.redirect || '/login.html';
+  res.redirect(redirectURL);
 });
 
 // 보호된 라우트 예시
