@@ -69,12 +69,19 @@ router.get('/status', (req, res) => {
 });
 
 // Google 로그인 시작
-router.get('/google', 
+router.get('/google', (req, res, next) => {
+  // Save the redirect_url to the session if provided
+  if (req.query.redirect_url) {
+    req.session.redirect_url = req.query.redirect_url;
+    console.log(`Saving redirect_url to session: ${req.query.redirect_url}`);
+  }
+  
+  // Continue with Google authentication
   passport.authenticate('google', { 
     scope: ['profile', 'email'],
     prompt: 'select_account'
-  })
-);
+  })(req, res, next);
+});
 
 // Google 로그인 콜백
 router.get('/google/callback', 
@@ -120,8 +127,15 @@ router.get('/google/callback',
       
       console.log('쿠키 설정 완료 - auth_token');
       
-      // 성공 페이지로 리디렉션
-      const redirectURL = req.query.redirect || '/';
+      // 세션에 저장된 redirect_url 가져오기
+      const redirectURL = req.session.redirect_url || req.query.redirect || '/';
+      console.log(`리다이렉트 주소: ${redirectURL}`);
+      
+      // 사용한 redirect_url을 세션에서 제거
+      if (req.session.redirect_url) {
+        delete req.session.redirect_url;
+      }
+      
       res.redirect(redirectURL);
     } catch (error) {
       console.error('로그인 처리 중 오류:', error);
@@ -144,8 +158,8 @@ router.get('/logout', (req, res) => {
   // 쿠키 삭제
   res.clearCookie('auth_token');
   
-  // 로그아웃 후 리디렉션
-  const redirectURL = req.query.redirect || '/login.html';
+  // 로그아웃 후 리디렉션 - redirect_url 파라미터 사용
+  const redirectURL = req.query.redirect_url || req.query.redirect || '/login.html';
   res.redirect(redirectURL);
 });
 
