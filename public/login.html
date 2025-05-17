@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Illusion Note - 로그인</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 30px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .logo {
+            margin-bottom: 30px;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: white;
+        }
+        .google-btn {
+            background-color: #4285F4;
+        }
+        .btn-icon {
+            margin-right: 10px;
+            width: 24px;
+            height: 24px;
+        }
+        .info-text {
+            margin-top: 20px;
+            color: #6c757d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="login-container">
+            <div class="logo">
+                <h2>Illusion Note</h2>
+                <p>감정 분석과 함께하는 일기장</p>
+            </div>
+            
+            <div class="login-options">
+                <a href="/api/auth/google" class="login-btn google-btn">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2991/2991148.png" alt="Google" class="btn-icon">
+                    Google 계정으로 로그인
+                </a>
+                
+                <p class="info-text">
+                    로그인하면 <strong>Illusion Note</strong>의 모든 기능을 사용할 수 있습니다.<br>
+                    감정 분석, 통계 보기 등 다양한 기능을 경험해보세요.
+                </p>
+            </div>
+            
+            <div id="login-status" class="mt-4">
+                <!-- 로그인 상태 표시 영역 -->
+            </div>
+            
+            <div id="error-message" class="mt-4 alert alert-danger" style="display: none;">
+                <!-- 오류 메시지 표시 영역 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // URL 파라미터 확인
+        function getUrlParam(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+        
+        // 로그인 상태 확인
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 오류 확인
+            const error = getUrlParam('error');
+            if (error) {
+                const errorDiv = document.getElementById('error-message');
+                errorDiv.style.display = 'block';
+                errorDiv.innerHTML = `<p>로그인 중 오류가 발생했습니다: ${error}</p>`;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/status', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                const statusDiv = document.getElementById('login-status');
+                
+                if (data.isAuthenticated) {
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <p><strong>${data.user.name}</strong>님으로 로그인되어 있습니다.</p>
+                            <a href="/" class="btn btn-primary btn-sm">홈으로</a>
+                            <a href="/api/auth/logout" class="btn btn-outline-danger btn-sm">로그아웃</a>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('로그인 상태 확인 중 오류:', error);
+            }
+        });
+    </script>
+</body>
+</html> 

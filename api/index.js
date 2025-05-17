@@ -6,6 +6,11 @@ const OpenAIService = require('./openai-service');
 const emotionStorageService = require('./emotion-storage-service');
 const supabase = require('./supabase-client');
 const path = require('path');
+const passport = require('passport');
+const session = require('express-session');
+const cookieParser = require('cookie-parser');
+const authRoutes = require('./auth-routes');
+const authService = require('./auth-service');
 
 // Initialize Express
 const app = express();
@@ -16,11 +21,42 @@ const openaiService = new OpenAIService();
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || `http://localhost:${process.env.PORT || 3001}`;
 
 // CORS 설정
-app.use(cors());
+app.use(cors({ credentials: true, origin: true }));
 app.use(express.json());
+app.use(cookieParser());
+
+// 세션 설정
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'illusion-note-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24시간
+  }
+}));
+
+// 세션 디버깅 미들웨어
+app.use((req, res, next) => {
+  const oldEnd = res.end;
+  res.end = function() {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - 세션ID: ${req.session?.id || 'None'}`);
+    return oldEnd.apply(this, arguments);
+  };
+  next();
+});
+
+// Passport 초기화
+console.log('Passport 초기화...');
+app.use(passport.initialize());
+app.use(passport.session());
+console.log('Passport 초기화 완료');
 
 // 정적 파일 제공 설정
 app.use(express.static(path.join(__dirname, '../public')));
+
+// 인증 라우트 등록
+app.use('/api/auth', authRoutes);
 
 // 기본 루트 엔드포인트
 app.get('/', (req, res) => {
@@ -30,6 +66,9 @@ app.get('/', (req, res) => {
     endpoints: {
       '/': 'API 정보 (GET)',
       '/health': '상태 확인 (GET)',
+      '/api/auth/google': 'Google 로그인 (GET)',
+      '/api/auth/status': '로그인 상태 확인 (GET)',
+      '/api/auth/logout': '로그아웃 (GET)',
       '/api/emotion/openai': '감정 분석 API - 자동 감정 분석 지원 (POST)',
       '/api/emotion/by-date': '날짜별 감정 분석 기록 조회 (GET)',
       '/api/emotion/monthly-stats': '월별 감정 통계 조회 (GET)',

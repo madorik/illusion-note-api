@@ -2,6 +2,7 @@
  * 감정 분석 결과 저장을 위한 서비스
  */
 const supabase = require('./supabase-client');
+const authService = require('./auth-service');
 
 class EmotionStorageService {
   constructor() {
@@ -12,7 +13,7 @@ class EmotionStorageService {
    * 감정 분석 결과를 저장합니다.
    * 
    * @param {Object} data 저장할 데이터
-   * @param {string} data.userId 사용자 ID (없으면 'anonymous')
+   * @param {string} data.userId 사용자 ID (없으면 anonymous UUID 사용)
    * @param {string} data.text 분석된 텍스트 (원본)
    * @param {string} data.emotion 감지된 감정
    * @param {string} data.response 응답 텍스트
@@ -43,7 +44,10 @@ class EmotionStorageService {
       }
       
       // 기본값 설정
-      const userId = data.userId || 'anonymous';
+      const userId = data.userId === 'anonymous' ? 
+        authService.getAnonymousUserId() : 
+        data.userId || authService.getAnonymousUserId();
+        
       const currentDate = new Date().toISOString();
       
       // 데이터 준비
