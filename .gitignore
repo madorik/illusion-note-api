@@ -12,3 +12,4 @@ venv/
 *.h5
 node_modules/
 app/models/__pycache__/
+start-local.bat
