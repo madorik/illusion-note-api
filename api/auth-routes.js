@@ -11,11 +11,20 @@ const { logOAuthDebug, analyzeOAuthError } = require('./oauth-debug');
 // 로그인 상태 확인 엔드포인트
 router.get('/status', (req, res) => {
   try {
+    console.log('로그인 상태 확인 요청:');
+    console.log('- 쿠키:', req.cookies);
+    
     // 쿠키 또는 Authorization 헤더에서 토큰 확인
     const authHeader = req.headers.authorization;
     const token = req.cookies?.auth_token || (authHeader && authHeader.split(' ')[1]);
     
+    console.log('- 토큰 존재 여부:', !!token);
+    if (token) {
+      console.log('- 토큰 첫 20자:', token.substring(0, 20) + '...');
+    }
+    
     if (!token) {
+      console.log('- 인증 되지 않음: 토큰 없음');
       return res.json({
         authenticated: false,
         message: "Not authenticated"
@@ -24,7 +33,10 @@ router.get('/status', (req, res) => {
     
     // 토큰 검증 시도
     try {
+      console.log('- JWT Secret 해시:', authService.getJwtSecret().substring(0, 3) + '...');
       const decoded = jwt.verify(token, authService.getJwtSecret());
+      
+      console.log('- 토큰 검증 성공:', decoded.name, '(ID:', decoded.id, ')');
       
       // 응답
       return res.json({
@@ -74,20 +86,39 @@ router.get('/google/callback',
     try {
       console.log('Google 로그인 성공:', req.user.name);
       
+      // JWT 토큰 생성 디버깅
+      console.log('JWT 토큰 생성:');
+      console.log('- 사용자 정보:', {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name
+      });
+      const jwtSecret = authService.getJwtSecret();
+      console.log('- Secret 해시:', jwtSecret ? jwtSecret.substring(0, 3) + '...' : 'undefined');
+      
       // JWT 토큰 생성
       const token = authService.generateToken(req.user);
       
-      // 디버깅용: 토큰 로그 출력
-      console.log('===== 발급된 JWT 토큰 =====');
-      console.log(token);
-      console.log('==========================');
+      console.log('- 토큰 생성 완료, 첫 20자:', token.substring(0, 20) + '...');
+      
+      // 디버그: 즉시 검증 시도
+      try {
+        const decoded = jwt.verify(token, jwtSecret);
+        console.log('- 즉시 검증 성공:', decoded.name);
+      } catch (verifyError) {
+        console.error('- 즉시 검증 실패:', verifyError.message);
+      }
       
       // 쿠키에 토큰 저장
       res.cookie('auth_token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000 // 24시간
+        maxAge: 24 * 60 * 60 * 1000, // 24시간
+        sameSite: 'lax',
+        path: '/'
       });
+      
+      console.log('쿠키 설정 완료 - auth_token');
       
       // 성공 페이지로 리디렉션
       const redirectURL = req.query.redirect || '/';

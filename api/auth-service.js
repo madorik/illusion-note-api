@@ -179,17 +179,25 @@ class AuthService {
    * JWT 토큰 검증 미들웨어
    */
   verifyToken(req, res, next) {
+    const self = this;
+    
     // Authorization 헤더 또는 쿠키에서 토큰 가져오기
     const authHeader = req.headers.authorization;
     const token = req.cookies?.auth_token || (authHeader && authHeader.split(' ')[1]);
 
+    console.log('토큰 검증 시도:');
+    console.log('- 토큰 존재 여부:', !!token);
+    
     if (!token) {
       return res.status(401).json({ error: 'No authentication token provided' });
     }
 
     try {
+      console.log('- 사용 중인 JWT SECRET 해시:', JWT_SECRET ? JWT_SECRET.substring(0, 3) + '...' : 'undefined');
       // 토큰 검증
       const decoded = jwt.verify(token, JWT_SECRET);
+      
+      console.log('- 토큰 검증 성공:', decoded.name, '(ID:', decoded.id, ')');
       
       // 검증된 사용자 정보를 요청 객체에 추가
       req.user = decoded;
@@ -197,6 +205,7 @@ class AuthService {
       next();
     } catch (error) {
       console.error('JWT 검증 실패:', error.message);
+      console.error('- 토큰 첫 10자:', token.substring(0, 10) + '...');
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
   }
@@ -210,6 +219,63 @@ class AuthService {
   }
   
   /**
+   * 반드시 로그인한 사용자만 허용하는 미들웨어 (익명 사용자 불허)
+   */
+  requireLogin(req, res, next) {
+    // requireLogin 메소드를 this에 바인딩하여 전달
+    const self = this;
+    
+    // Authorization 헤더 또는 쿠키에서 토큰 가져오기
+    const authHeader = req.headers.authorization;
+    const token = req.cookies?.auth_token || (authHeader && authHeader.split(' ')[1]);
+
+    console.log('requireLogin - 인증 필요 API 접근:');
+    console.log('- 토큰 존재 여부:', !!token);
+    console.log('- 쿠키:', req.cookies);
+    
+    // 토큰이 없으면 401 응답
+    if (!token) {
+      console.log('토큰 없음: 인증 필요');
+      return res.status(401).json({ 
+        error: 'Authentication required', 
+        message: '이 기능을 사용하려면 로그인이 필요합니다.' 
+      });
+    }
+
+    try {
+      console.log('- 사용 중인 JWT SECRET 해시:', JWT_SECRET ? JWT_SECRET.substring(0, 3) + '...' : 'undefined');
+      console.log('- 토큰 첫 20자:', token.substring(0, 20) + '...');
+      
+      // 토큰 검증
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      console.log('- 토큰 검증 성공:', decoded.name, '(ID:', decoded.id, ')');
+      
+      // 검증된 사용자 정보를 요청 객체에 추가
+      req.user = decoded;
+      
+      // 익명 사용자인지 확인
+      if (decoded.id === self.getAnonymousUserId()) {
+        console.log('로그인 필요: 익명 사용자 접근 시도');
+        return res.status(403).json({ 
+          error: 'Login required',
+          message: '이 기능은 로그인한 사용자만 사용할 수 있습니다.'
+        });
+      }
+      
+      // 인증된 사용자인 경우 다음 미들웨어로
+      next();
+    } catch (error) {
+      console.error('JWT 검증 실패:', error.message);
+      console.error('- 토큰 첫 10자:', token.substring(0, 10) + '...');
+      return res.status(401).json({ 
+        error: 'Invalid or expired token',
+        message: '인증이 만료되었거나 유효하지 않습니다. 다시 로그인해주세요.'
+      });
+    }
+  }
+  
+  /**
    * 익명 사용자 ID 조회
    */
   getAnonymousUserId() {
@@ -220,6 +286,7 @@ class AuthService {
    * JWT Secret 반환
    */
   getJwtSecret() {
+    console.log('getJwtSecret 호출됨, SECRET 해시:', JWT_SECRET ? JWT_SECRET.substring(0, 3) + '...' : 'undefined');
     return JWT_SECRET;
   }
 
@@ -247,4 +314,12 @@ class AuthService {
   }
 }
 
-module.exports = new AuthService(); 
+// 서비스 인스턴스 생성 및 내보내기
+const authService = new AuthService();
+
+// 메서드를 인스턴스에 바인딩
+authService.requireLogin = authService.requireLogin.bind(authService);
+authService.verifyToken = authService.verifyToken.bind(authService);
+authService.ensureAuthenticated = authService.ensureAuthenticated.bind(authService);
+
+module.exports = authService; 
