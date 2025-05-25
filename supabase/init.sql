@@ -16,6 +16,18 @@ CREATE TABLE IF NOT EXISTS users (
     last_login TIMESTAMP WITH TIME ZONE
 );
 
+-- 리프레시 토큰 테이블 생성
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    revoked_at TIMESTAMP WITH TIME ZONE NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- 감정 분석 결과 테이블
 CREATE TABLE IF NOT EXISTS emotion_analysis (
   id BIGSERIAL PRIMARY KEY,
@@ -44,10 +56,14 @@ CREATE INDEX IF NOT EXISTS emotion_analysis_created_at_idx ON emotion_analysis (
 CREATE INDEX IF NOT EXISTS emotion_analysis_emotion_idx ON emotion_analysis (emotion);
 CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
 CREATE INDEX IF NOT EXISTS users_provider_id_idx ON users(provider_id);
+CREATE INDEX IF NOT EXISTS refresh_tokens_user_id_idx ON refresh_tokens (user_id);
+CREATE INDEX IF NOT EXISTS refresh_tokens_token_idx ON refresh_tokens (token);
+CREATE INDEX IF NOT EXISTS refresh_tokens_expires_at_idx ON refresh_tokens (expires_at);
 
 -- RLS(Row Level Security) 설정
 ALTER TABLE emotion_analysis ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE refresh_tokens ENABLE ROW LEVEL SECURITY;
 
 -- 모든 사용자가 자신의 데이터만 볼 수 있도록 정책 설정
 CREATE POLICY "사용자는 자신의 감정 분석 데이터만 볼 수 있음" ON emotion_analysis
@@ -73,9 +89,15 @@ CREATE POLICY emotion_analysis_policy ON emotion_analysis
     USING (true)
     WITH CHECK (true);
 
+CREATE POLICY refresh_tokens_policy ON refresh_tokens
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
 -- 기본 조회 권한 생성
 GRANT SELECT ON emotion_analysis TO anon, authenticated, service_role;
 GRANT INSERT ON emotion_analysis TO anon, authenticated, service_role;
 GRANT USAGE ON SEQUENCE emotion_analysis_id_seq TO anon, authenticated, service_role;
 GRANT SELECT ON users TO anon, authenticated, service_role;
-GRANT INSERT ON users TO anon, authenticated, service_role; 
+GRANT INSERT ON users TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON refresh_tokens TO anon, authenticated, service_role; 

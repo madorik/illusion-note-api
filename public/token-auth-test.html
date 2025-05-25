@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google ID 토큰 인증 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #3367d6;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .logout-btn {
+            background-color: #dc3545;
+        }
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
+        textarea, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            margin: 5px 0;
+            box-sizing: border-box;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .token-display {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 11px;
+            word-break: break-all;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        .user-info {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d7ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+    <script src="https://apis.google.com/js/gsi/client" async defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Google ID 토큰 인증 테스트</h1>
+        
+        <div class="section">
+            <h3>1️⃣ Google 로그인</h3>
+            <p>Google 로그인 후 ID 토큰을 받아 서버로 전송합니다.</p>
+            <div id="g_id_onload"
+                 data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+            <div class="g_id_signin" 
+                 data-type="standard" 
+                 data-size="large" 
+                 data-theme="outline" 
+                 data-text="sign_in_with"
+                 data-shape="rectangular"
+                 data-logo_alignment="left">
+            </div>
+            <button onclick="manualLogin()">수동 ID 토큰 입력</button>
+            
+            <div id="loginResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>2️⃣ 사용자 정보 조회</h3>
+            <p>Access Token으로 사용자 정보를 조회합니다.</p>
+            <button onclick="getUserInfo()" id="getUserBtn" disabled>사용자 정보 조회</button>
+            <div id="userResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>3️⃣ 보호된 리소스 접근</h3>
+            <p>Access Token으로 보호된 API에 접근합니다.</p>
+            <button onclick="accessProtectedResource()" id="protectedBtn" disabled>보호된 리소스 접근</button>
+            <div id="protectedResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>4️⃣ 토큰 갱신</h3>
+            <p>Refresh Token으로 새로운 Access Token을 발급받습니다.</p>
+            <button onclick="refreshAccessToken()" id="refreshBtn" disabled>토큰 갱신</button>
+            <div id="refreshResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>5️⃣ 로그아웃</h3>
+            <p>토큰을 폐기하고 로그아웃합니다.</p>
+            <button onclick="logout()" id="logoutBtn" class="logout-btn" disabled>로그아웃</button>
+            <button onclick="logoutAll()" id="logoutAllBtn" class="logout-btn" disabled>모든 세션 로그아웃</button>
+            <div id="logoutResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>📊 현재 토큰 상태</h3>
+            <div id="tokenStatus">
+                <p><strong>로그인 상태:</strong> <span id="loginStatus">로그아웃</span></p>
+                <p><strong>Access Token:</strong></p>
+                <div id="accessTokenDisplay" class="token-display">없음</div>
+                <p><strong>Refresh Token:</strong></p>
+                <div id="refreshTokenDisplay" class="token-display">없음</div>
+                <div id="userInfo" class="user-info" style="display: none;">
+                    <h4>사용자 정보</h4>
+                    <p><strong>이름:</strong> <span id="userName"></span></p>
+                    <p><strong>이메일:</strong> <span id="userEmail"></span></p>
+                    <p><strong>ID:</strong> <span id="userId"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let accessToken = '';
+        let refreshToken = '';
+        let currentUser = null;
+
+        // API 기본 URL - 환경에 맞게 수정
+        const API_BASE_URL = window.location.origin;
+
+        // Google 로그인 콜백
+        function handleCredentialResponse(response) {
+            console.log('Google ID Token 받음:', response.credential);
+            
+            // 토큰 디버깅 정보 출력
+            try {
+                const parts = response.credential.split('.');
+                if (parts.length === 3) {
+                    const header = JSON.parse(atob(parts[0]));
+                    const payload = JSON.parse(atob(parts[1]));
+                    
+                    console.log('토큰 헤더:', header);
+                    console.log('토큰 페이로드:', {
+                        iss: payload.iss,
+                        aud: payload.aud,
+                        exp: new Date(payload.exp * 1000),
+                        email: payload.email,
+                        name: payload.name
+                    });
+                    console.log('토큰 길이:', response.credential.length);
+                    console.log('서명 길이:', parts[2].length);
+                }
+            } catch (e) {
+                console.log('토큰 디코딩 실패:', e.message);
+            }
+            
+            loginWithIdToken(response.credential);
+        }
+
+        // Google 클라이언트 초기화
+        window.onload = function() {
+            // 실제 Google Client ID 설정
+            const clientId = '360964278077-hr6nu21t8uuug5kurvbsdlcdjtmukrm8.apps.googleusercontent.com';
+            document.querySelector('[data-client_id]').setAttribute('data-client_id', clientId);
+            
+            if (window.google) {
+                google.accounts.id.initialize({
+                    client_id: clientId,
+                    callback: handleCredentialResponse
+                });
+            }
+
+            updateUI();
+        };
+
+        // ID 토큰으로 로그인
+        async function loginWithIdToken(idToken) {
+            try {
+                showResult('loginResult', '로그인 중...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/api/token-auth/google-login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ idToken })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    accessToken = data.accessToken;
+                    refreshToken = data.refreshToken;
+                    currentUser = data.user;
+                    
+                    showResult('loginResult', `로그인 성공!\n${JSON.stringify(data, null, 2)}`, 'success');
+                    updateUI();
+                } else {
+                    showResult('loginResult', `로그인 실패: ${data.error}\n${data.details || ''}`, 'error');
+                }
+            } catch (error) {
+                showResult('loginResult', `네트워크 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 수동 ID 토큰 입력
+        function manualLogin() {
+            const idToken = prompt('Google ID Token을 입력하세요:');
+            if (idToken) {
+                loginWithIdToken(idToken);
+            }
+        }
+
+        // 사용자 정보 조회
+        async function getUserInfo() {
+            try {
+                showResult('userResult', '사용자 정보 조회 중...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/api/token-auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult('userResult', JSON.stringify(data, null, 2), 'success');
+                } else {
+                    showResult('userResult', `오류: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult('userResult', `네트워크 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 보호된 리소스 접근
+        async function accessProtectedResource() {
+            try {
+                showResult('protectedResult', '보호된 리소스 접근 중...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/api/token-auth/protected`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult('protectedResult', JSON.stringify(data, null, 2), 'success');
+                } else {
+                    showResult('protectedResult', `오류: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult('protectedResult', `네트워크 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 토큰 갱신
+        async function refreshAccessToken() {
+            try {
+                showResult('refreshResult', '토큰 갱신 중...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/api/token-auth/refresh`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ refreshToken })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    accessToken = data.accessToken;
+                    refreshToken = data.refreshToken;
+                    currentUser = data.user;
+                    
+                    showResult('refreshResult', `토큰 갱신 성공!\n${JSON.stringify(data, null, 2)}`, 'success');
+                    updateUI();
+                } else {
+                    showResult('refreshResult', `토큰 갱신 실패: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult('refreshResult', `네트워크 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 로그아웃
+        async function logout() {
+            try {
+                showResult('logoutResult', '로그아웃 중...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/api/token-auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ refreshToken })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    clearTokens();
+                    showResult('logoutResult', '로그아웃 성공!', 'success');
+                } else {
+                    showResult('logoutResult', `로그아웃 실패: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult('logoutResult', `네트워크 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 모든 세션 로그아웃
+        async function logoutAll() {
+            try {
+                showResult('logoutResult', '모든 세션 로그아웃 중...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/api/token-auth/logout-all`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    clearTokens();
+                    showResult('logoutResult', '모든 세션 로그아웃 성공!', 'success');
+                } else {
+                    showResult('logoutResult', `로그아웃 실패: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult('logoutResult', `네트워크 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 토큰 및 사용자 정보 초기화
+        function clearTokens() {
+            accessToken = '';
+            refreshToken = '';
+            currentUser = null;
+            updateUI();
+        }
+
+        // UI 업데이트
+        function updateUI() {
+            const isLoggedIn = !!accessToken;
+            
+            // 로그인 상태 표시
+            document.getElementById('loginStatus').textContent = isLoggedIn ? '로그인' : '로그아웃';
+            
+            // 토큰 표시
+            document.getElementById('accessTokenDisplay').textContent = accessToken || '없음';
+            document.getElementById('refreshTokenDisplay').textContent = refreshToken || '없음';
+            
+            // 사용자 정보 표시
+            const userInfoDiv = document.getElementById('userInfo');
+            if (currentUser) {
+                document.getElementById('userName').textContent = currentUser.name || '';
+                document.getElementById('userEmail').textContent = currentUser.email || '';
+                document.getElementById('userId').textContent = currentUser.id || '';
+                userInfoDiv.style.display = 'block';
+            } else {
+                userInfoDiv.style.display = 'none';
+            }
+            
+            // 버튼 활성화/비활성화
+            document.getElementById('getUserBtn').disabled = !isLoggedIn;
+            document.getElementById('protectedBtn').disabled = !isLoggedIn;
+            document.getElementById('refreshBtn').disabled = !refreshToken;
+            document.getElementById('logoutBtn').disabled = !refreshToken;
+            document.getElementById('logoutAllBtn').disabled = !isLoggedIn;
+        }
+
+        // 결과 표시 함수
+        function showResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+            element.style.display = 'block';
+        }
+    </script>
+</body>
+</html> 

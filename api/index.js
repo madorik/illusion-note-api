@@ -10,6 +10,7 @@ const passport = require('passport');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./auth-routes');
+const tokenAuthRoutes = require('./token-auth-routes');
 const authService = require('./auth-service');
 const jwt = require('jsonwebtoken');
 
@@ -86,6 +87,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // 인증 라우트 등록
 app.use('/api/auth', authRoutes);
+app.use('/api/token-auth', tokenAuthRoutes);
 
 // 기본 루트 엔드포인트
 app.get('/', (req, res) => {
@@ -98,6 +100,11 @@ app.get('/', (req, res) => {
       '/api/auth/google': 'Google 로그인 (GET)',
       '/api/auth/status': '로그인 상태 확인 (GET)',
       '/api/auth/logout': '로그아웃 (GET)',
+      '/api/token-auth/google-login': 'Google ID 토큰 로그인 (POST)',
+      '/api/token-auth/refresh': '토큰 갱신 (POST)',
+      '/api/token-auth/logout': '토큰 기반 로그아웃 (POST)',
+      '/api/token-auth/me': '사용자 정보 조회 (GET)',
+      '/api/token-auth/protected': '보호된 리소스 예시 (GET)',
       '/api/profile': '사용자 프로필 정보 (GET)',
       '/api/emotion/openai': '감정 분석 API - 자동 감정 분석 지원 (POST)',
       '/api/emotion/by-date': '날짜별 감정 분석 기록 조회 (GET)',

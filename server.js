@@ -1,6 +1,7 @@
 // 로컬 개발 서버 실행 파일
 require('dotenv').config();  // 환경 변수 로드
 const app = require('./api/index');
+const tokenCleanupScheduler = require('./api/token-cleanup-scheduler');
 const PORT = process.env.PORT || 3001;
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || `http://localhost:${PORT}`;
 
@@ -16,4 +17,22 @@ app.listen(PORT, () => {
   console.log(`상태 체크: ${SERVER_DOMAIN}/health`);
   console.log(`감정 분석 API: ${SERVER_DOMAIN}/api/emotion (POST)`);
   console.log(`OpenAI 완성 API: ${SERVER_DOMAIN}/api/openai/completion (POST)`);
+  console.log(`토큰 인증 테스트: ${SERVER_DOMAIN}/token-auth-test.html`);
+  
+  // 토큰 정리 스케줄러 시작
+  console.log('🔧 토큰 정리 스케줄러 시작...');
+  tokenCleanupScheduler.start();
+});
+
+// 서버 종료 시 정리 작업
+process.on('SIGINT', () => {
+  console.log('\n서버 종료 중...');
+  tokenCleanupScheduler.stop();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n서버 종료 중...');
+  tokenCleanupScheduler.stop();
+  process.exit(0);
 }); 
