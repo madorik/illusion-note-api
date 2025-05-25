@@ -88,8 +88,7 @@ console.log('Passport 초기화 완료');
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Swagger API 문서 설정 (Vercel 호환)
-app.use('/api-docs', swaggerUi.serve);
-app.get('/api-docs', swaggerUi.setup(swaggerSpecs, {
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
   explorer: true,
   customSiteTitle: 'Illusion Note API Documentation',
   customCss: `
