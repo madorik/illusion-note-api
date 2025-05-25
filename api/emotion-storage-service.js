@@ -64,11 +64,44 @@ class EmotionStorageService {
       
       console.log(`Supabase 데이터 삽입 시작: 테이블=${this.tableName}, userId=${userId}`);
       
-      // Supabase에 데이터 삽입
-      const { data: insertedData, error } = await supabase
-        .from(this.tableName)
-        .insert(recordData)
-        .select();
+      // Supabase에 데이터 삽입 (재시도 로직 포함)
+      let insertedData, error;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          const result = await supabase
+            .from(this.tableName)
+            .insert(recordData)
+            .select();
+          
+          insertedData = result.data;
+          error = result.error;
+          
+          if (!error) {
+            break; // 성공하면 루프 종료
+          }
+          
+          console.warn(`Supabase 삽입 시도 ${retryCount + 1} 실패:`, error);
+          retryCount++;
+          
+          if (retryCount < maxRetries) {
+            // 재시도 전 잠시 대기 (지수 백오프)
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+          }
+        } catch (fetchError) {
+          console.error(`Supabase 삽입 시도 ${retryCount + 1} 네트워크 오류:`, fetchError);
+          retryCount++;
+          
+          if (retryCount < maxRetries) {
+            // 재시도 전 잠시 대기
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+          } else {
+            error = fetchError;
+          }
+        }
+      }
       
       if (error) {
         console.error('감정 분석 결과 저장 중 오류:', error);

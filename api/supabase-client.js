@@ -23,11 +23,27 @@ if (!supabaseUrl || !supabaseKey) {
 // 설정 로깅 (민감 정보 마스킹)
 console.log(`Supabase 설정: URL=${supabaseUrl ? '설정됨' : '설정되지 않음'}, API 키=${supabaseKey ? '설정됨' : '설정되지 않음'}`);
 
-// Supabase 클라이언트 생성
+// Supabase 클라이언트 생성 (Vercel 최적화)
 let supabase;
 try {
-  supabase = createClient(supabaseUrl, supabaseKey);
-  console.log('Supabase 클라이언트 생성 성공');
+  supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: false, // 서버리스 환경에서는 세션 유지 불필요
+      autoRefreshToken: false, // 자동 토큰 갱신 비활성화
+    },
+    global: {
+      fetch: (...args) => {
+        // Vercel 환경에서 fetch 타임아웃 설정
+        const [url, config = {}] = args;
+        const timeoutConfig = {
+          ...config,
+          signal: AbortSignal.timeout(10000), // 10초 타임아웃
+        };
+        return fetch(url, timeoutConfig);
+      },
+    },
+  });
+  console.log('Supabase 클라이언트 생성 성공 (Vercel 최적화)');
 } catch (error) {
   console.error('Supabase 클라이언트 생성 오류:', error);
   // 클라이언트 생성 실패 시 더미 클라이언트 생성 (앱 실행은 유지)
