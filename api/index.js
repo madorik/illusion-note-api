@@ -87,17 +87,24 @@ console.log('Passport 초기화 완료');
 // 정적 파일 제공 설정
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Swagger API 문서 설정
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
+// Swagger API 문서 설정 (Vercel 호환)
+app.use('/api-docs', swaggerUi.serve);
+app.get('/api-docs', swaggerUi.setup(swaggerSpecs, {
   explorer: true,
-  customCss: '.swagger-ui .topbar { display: none }',
   customSiteTitle: 'Illusion Note API Documentation',
+  customCss: `
+    .swagger-ui .topbar { display: none }
+    .swagger-ui .info { margin: 20px 0; }
+    .swagger-ui .scheme-container { background: #fafafa; padding: 10px; }
+  `,
   swaggerOptions: {
     persistAuthorization: true,
     displayRequestDuration: true,
     filter: true,
-    showExtensions: true,
-    showCommonExtensions: true
+    docExpansion: 'list',
+    defaultModelsExpandDepth: 1,
+    defaultModelExpandDepth: 1,
+    tryItOutEnabled: true
   }
 }));
 
