@@ -161,6 +161,134 @@ const options = {
               description: 'Refresh token to revoke'
             }
           }
+        },
+        EmotionAnalysisRequest: {
+          type: 'object',
+          required: ['text'],
+          properties: {
+            text: {
+              type: 'string',
+              description: '감정 분석할 텍스트',
+              example: '부장님이 나한테 일 잘한다고 칭찬해줬어.'
+            },
+            mood_id: {
+              type: 'string',
+              description: '기분 ID (선택사항)',
+              example: ''
+            },
+            mode: {
+              type: 'string',
+              enum: ['chat', 'analysis'],
+              default: 'chat',
+              description: '분석 모드'
+            },
+            response_type: {
+              type: 'string',
+              enum: ['comfort', 'advice', 'celebration', 'empathy'],
+              default: 'comfort',
+              description: '응답 유형'
+            },
+            context: {
+              type: 'string',
+              description: '추가 컨텍스트 (선택사항)',
+              example: ''
+            }
+          }
+        },
+        EmotionAnalysisResponse: {
+          type: 'object',
+          properties: {
+            emotion: {
+              type: 'string',
+              description: '분석된 감정',
+              example: '기쁨'
+            },
+            response: {
+              type: 'string',
+              description: 'AI 응답 메시지',
+              example: '정말 좋은 소식이네요! 부장님의 칭찬을 받으셨다니 기분이 좋으실 것 같아요.'
+            },
+            analyze_text: {
+              type: 'string',
+              description: '감정 분석 상세 내용',
+              example: '긍정적인 피드백을 받은 상황으로 기쁨과 성취감이 느껴집니다.'
+            },
+            summary: {
+              type: 'string',
+              description: '요약',
+              example: '직장에서 긍정적인 피드백을 받은 기쁜 순간'
+            },
+            title: {
+              type: 'string',
+              description: '제목',
+              example: '부장님의 칭찬'
+            }
+          }
+        },
+        EmotionRecord: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: '기록 ID'
+            },
+            user_id: {
+              type: 'string',
+              description: '사용자 ID'
+            },
+            text: {
+              type: 'string',
+              description: '원본 텍스트'
+            },
+            emotion: {
+              type: 'string',
+              description: '분석된 감정'
+            },
+            response: {
+              type: 'string',
+              description: 'AI 응답'
+            },
+            title: {
+              type: 'string',
+              description: '제목'
+            },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+              description: '생성 시간'
+            }
+          }
+        },
+        MonthlyEmotionStats: {
+          type: 'object',
+          properties: {
+            yearMonth: {
+              type: 'string',
+              description: '년월 (YYYY-MM)',
+              example: '2024-01'
+            },
+            totalCount: {
+              type: 'integer',
+              description: '총 기록 수'
+            },
+            emotionCounts: {
+              type: 'object',
+              description: '감정별 카운트',
+              additionalProperties: {
+                type: 'integer'
+              },
+              example: {
+                '기쁨': 15,
+                '슬픔': 5,
+                '화남': 3
+              }
+            },
+            dominantEmotion: {
+              type: 'string',
+              description: '가장 많은 감정',
+              example: '기쁨'
+            }
+          }
         }
       }
     },
@@ -172,6 +300,14 @@ const options = {
       {
         name: 'Session Authentication',
         description: 'Traditional session-based authentication endpoints'
+      },
+      {
+        name: 'Emotion Analysis',
+        description: 'AI-powered emotion analysis and response generation'
+      },
+      {
+        name: 'User Profile',
+        description: 'User profile and information endpoints'
       },
       {
         name: 'Notes',
@@ -187,6 +323,7 @@ const options = {
     './api/token-auth-routes.js',
     './api/auth-routes.js',
     './api/notes-routes.js',
+    './api/index.js',
     './server.js'
   ]
 };

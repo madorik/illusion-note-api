@@ -171,6 +171,50 @@ app.get('/health', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/profile:
+ *   get:
+ *     tags: [User Profile]
+ *     summary: 사용자 프로필 정보 조회
+ *     description: |
+ *       현재 로그인한 사용자의 프로필 정보를 조회합니다.
+ *       Supabase에서 최신 정보를 가져옵니다.
+ *     security:
+ *       - BearerAuth: []
+ *       - SessionAuth: []
+ *     responses:
+ *       200:
+ *         description: 프로필 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 profile:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: 사용자를 찾을 수 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // 프로필 정보 조회 엔드포인트 
 app.get('/api/profile', authService.verifyToken, async (req, res) => {
   try {
@@ -204,6 +248,50 @@ app.get('/api/profile', authService.verifyToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/emotion/openai:
+ *   post:
+ *     tags: [Emotion Analysis]
+ *     summary: AI 감정 분석 및 응답 생성
+ *     description: |
+ *       사용자가 입력한 텍스트를 OpenAI를 사용하여 감정 분석하고, 
+ *       적절한 응답을 생성합니다. 분석 결과는 자동으로 저장됩니다.
+ *     security:
+ *       - BearerAuth: []
+ *       - SessionAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EmotionAnalysisRequest'
+ *     responses:
+ *       200:
+ *         description: 감정 분석 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/EmotionAnalysisResponse'
+ *       400:
+ *         description: 잘못된 요청 (텍스트 누락)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // OpenAI 감정 분석 엔드포인트 - OpenAIService 사용
 app.post('/api/emotion/openai', authService.requireLogin, async (req, res) => {
   try {
@@ -303,6 +391,74 @@ app.post('/api/emotion/openai', authService.requireLogin, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/emotion/by-date:
+ *   get:
+ *     tags: [Emotion Analysis]
+ *     summary: 날짜별 감정 분석 기록 조회
+ *     description: |
+ *       지정된 날짜 범위 내의 감정 분석 기록을 조회합니다.
+ *       통계 정보도 함께 제공됩니다.
+ *     security:
+ *       - BearerAuth: []
+ *       - SessionAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: 시작 날짜 (YYYY-MM-DD)
+ *         example: "2024-01-01"
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: 종료 날짜 (YYYY-MM-DD)
+ *         example: "2024-01-31"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 100
+ *         description: 최대 결과 수
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 total:
+ *                   type: integer
+ *                   description: 총 기록 수
+ *                 statistics:
+ *                   type: object
+ *                   properties:
+ *                     emotionCounts:
+ *                       type: object
+ *                       additionalProperties:
+ *                         type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/EmotionRecord'
+ *       400:
+ *         description: 잘못된 요청
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // 날짜별 감정 분석 기록 조회 엔드포인트
 app.get('/api/emotion/by-date', authService.requireLogin, async (req, res) => {
   try {
@@ -351,6 +507,70 @@ app.get('/api/emotion/by-date', authService.requireLogin, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/emotion/monthly-stats:
+ *   get:
+ *     tags: [Emotion Analysis]
+ *     summary: 월별 감정 통계 조회
+ *     description: |
+ *       월별 또는 연도별 감정 분석 통계를 조회합니다.
+ *       특정 년월, 연도, 또는 전체 기간의 통계를 제공합니다.
+ *     security:
+ *       - BearerAuth: []
+ *       - SessionAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: yearMonth
+ *         schema:
+ *           type: string
+ *           pattern: '^\d{4}-\d{2}$'
+ *         description: 특정 년월 (YYYY-MM 형식)
+ *         example: "2024-01"
+ *       - in: query
+ *         name: year
+ *         schema:
+ *           type: integer
+ *           minimum: 2000
+ *           maximum: 2100
+ *         description: 특정 연도
+ *         example: 2024
+ *     responses:
+ *       200:
+ *         description: 통계 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 userId:
+ *                   type: string
+ *                 yearMonth:
+ *                   type: string
+ *                   description: 요청한 년월 (yearMonth 파라미터 사용시)
+ *                 year:
+ *                   type: integer
+ *                   description: 요청한 연도 (year 파라미터 사용시)
+ *                 totalMonths:
+ *                   type: integer
+ *                   description: 총 월 수
+ *                 stats:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/MonthlyEmotionStats'
+ *       400:
+ *         description: 잘못된 요청
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // 월별 감정 통계 조회 엔드포인트
 app.get('/api/emotion/monthly-stats', authService.requireLogin, async (req, res) => {
   try {
@@ -432,6 +652,58 @@ app.get('/api/emotion/monthly-stats', authService.requireLogin, async (req, res)
   }
 });
 
+/**
+ * @swagger
+ * /api/emotion/recent:
+ *   get:
+ *     tags: [Emotion Analysis]
+ *     summary: 최근 감정 분석 기록 조회
+ *     description: |
+ *       사용자의 최근 감정 분석 기록을 지정된 개수만큼 조회합니다.
+ *       최신 순으로 정렬되어 반환됩니다.
+ *     security:
+ *       - BearerAuth: []
+ *       - SessionAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: count
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 5
+ *         description: 조회할 기록 수
+ *         example: 10
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 userId:
+ *                   type: string
+ *                   description: 사용자 ID
+ *                 count:
+ *                   type: integer
+ *                   description: 실제 반환된 기록 수
+ *                 posts:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/EmotionRecord'
+ *       400:
+ *         description: 잘못된 요청
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // 사용자 최근 작성글 조회 엔드포인트
 app.get('/api/emotion/recent', authService.requireLogin, async (req, res) => {
   try {
