@@ -13,7 +13,6 @@ const authRoutes = require('./auth-routes');
 const tokenAuthRoutes = require('./token-auth-routes');
 const authService = require('./auth-service');
 const jwt = require('jsonwebtoken');
-const swaggerUi = require('swagger-ui-express');
 const swaggerSpecs = require('./swagger-config');
 
 // Initialize Express
@@ -88,24 +87,19 @@ console.log('Passport 초기화 완료');
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Swagger API 문서 설정 (Vercel 호환)
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
-  explorer: true,
-  customSiteTitle: 'Illusion Note API Documentation',
-  customCss: `
-    .swagger-ui .topbar { display: none }
-    .swagger-ui .info { margin: 20px 0; }
-    .swagger-ui .scheme-container { background: #fafafa; padding: 10px; }
-  `,
-  swaggerOptions: {
-    persistAuthorization: true,
-    displayRequestDuration: true,
-    filter: true,
-    docExpansion: 'list',
-    defaultModelsExpandDepth: 1,
-    defaultModelExpandDepth: 1,
-    tryItOutEnabled: true
-  }
-}));
+// 커스텀 HTML 페이지로 리다이렉트
+app.get('/api-docs', (req, res) => {
+  res.redirect('/swagger-ui.html');
+});
+
+// Swagger JSON 스펙 제공
+app.get('/api/swagger-spec', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.json(swaggerSpecs);
+});
 
 // 인증 라우트 등록
 app.use('/api/auth', authRoutes);
@@ -135,6 +129,7 @@ app.get('/', (req, res) => {
     },
     docs: {
       '/api-docs': 'Swagger API 문서 (Interactive)',
+      '/swagger-ui.html': 'Swagger API 문서 (Direct)',
       '/emotion-analyzer-test.html': '감정 분석 테스트 페이지',
       '/token-auth-test.html': '토큰 인증 테스트 페이지'
     }

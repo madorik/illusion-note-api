@@ -23,9 +23,7 @@
     "openai": "^4.98.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-dist": "^5.17.14",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-jsdoc": "^6.2.8"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
