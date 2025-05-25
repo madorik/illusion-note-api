@@ -37,7 +37,7 @@ const options = {
         description: 'Development server'
       },
       {
-        url: 'https://your-vercel-domain.vercel.app',
+        url: 'https://illusion-note-api.vercel.app',
         description: 'Production server'
       }
     ],
