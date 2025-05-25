@@ -184,7 +184,7 @@ const options = {
             },
             response_type: {
               type: 'string',
-              enum: ['comfort', 'advice', 'celebration', 'empathy'],
+              enum: ['comfort', 'fact', 'advice'],
               default: 'comfort',
               description: '응답 유형'
             },
