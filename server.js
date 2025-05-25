@@ -13,11 +13,17 @@ if (!process.env.OPENAI_API_KEY) {
 }
 
 app.listen(PORT, () => {
-  console.log(`서버가 ${SERVER_DOMAIN} 에서 실행 중입니다.`);
-  console.log(`상태 체크: ${SERVER_DOMAIN}/health`);
-  console.log(`감정 분석 API: ${SERVER_DOMAIN}/api/emotion (POST)`);
-  console.log(`OpenAI 완성 API: ${SERVER_DOMAIN}/api/openai/completion (POST)`);
-  console.log(`토큰 인증 테스트: ${SERVER_DOMAIN}/token-auth-test.html`);
+  console.log(`🚀 서버가 ${SERVER_DOMAIN} 에서 실행 중입니다.`);
+  console.log(`📊 API 문서: ${SERVER_DOMAIN}/api-docs`);
+  console.log(`🏥 상태 체크: ${SERVER_DOMAIN}/health`);
+  console.log(`🔐 토큰 인증 테스트: ${SERVER_DOMAIN}/token-auth-test.html`);
+  console.log(`😊 감정 분석 테스트: ${SERVER_DOMAIN}/emotion-analyzer-test.html`);
+  console.log('');
+  console.log('📋 주요 API 엔드포인트:');
+  console.log(`  • POST ${SERVER_DOMAIN}/api/token-auth/google-login`);
+  console.log(`  • POST ${SERVER_DOMAIN}/api/token-auth/refresh`);
+  console.log(`  • GET  ${SERVER_DOMAIN}/api/token-auth/me`);
+  console.log(`  • POST ${SERVER_DOMAIN}/api/emotion/openai`);
   
   // 토큰 정리 스케줄러 시작
   console.log('🔧 토큰 정리 스케줄러 시작...');

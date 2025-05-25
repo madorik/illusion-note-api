@@ -13,6 +13,8 @@ const authRoutes = require('./auth-routes');
 const tokenAuthRoutes = require('./token-auth-routes');
 const authService = require('./auth-service');
 const jwt = require('jsonwebtoken');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpecs = require('./swagger-config');
 
 // Initialize Express
 const app = express();
@@ -85,6 +87,20 @@ console.log('Passport 초기화 완료');
 // 정적 파일 제공 설정
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Swagger API 문서 설정
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
+  explorer: true,
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Illusion Note API Documentation',
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    filter: true,
+    showExtensions: true,
+    showCommonExtensions: true
+  }
+}));
+
 // 인증 라우트 등록
 app.use('/api/auth', authRoutes);
 app.use('/api/token-auth', tokenAuthRoutes);
@@ -112,14 +128,46 @@ app.get('/', (req, res) => {
       '/api/emotion/recent': '사용자 최근 작성글 조회 (GET)'
     },
     docs: {
-      '/emotion-analyzer-test.html': '감정 분석 테스트 페이지'
+      '/api-docs': 'Swagger API 문서 (Interactive)',
+      '/emotion-analyzer-test.html': '감정 분석 테스트 페이지',
+      '/token-auth-test.html': '토큰 인증 테스트 페이지'
     }
   });
 });
 
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     tags: [Health]
+ *     summary: API 상태 확인
+ *     description: API 서버의 상태를 확인합니다.
+ *     responses:
+ *       200:
+ *         description: 서버 정상 상태
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "healthy"
+ *                 domain:
+ *                   type: string
+ *                   example: "http://localhost:3001"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                   example: "2024-01-01T12:00:00.000Z"
+ */
 // 상태 체크 엔드포인트
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', domain: SERVER_DOMAIN });
+  res.json({ 
+    status: 'healthy', 
+    domain: SERVER_DOMAIN,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // 프로필 정보 조회 엔드포인트 
